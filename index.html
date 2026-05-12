@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贝壳找房 - 户型信息提取工具</title>
+<style>
+  :root {
+    --primary: #e53e3e;
+    --primary-hover: #c53030;
+    --bg: #f5f5f5;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --text-secondary: #718096;
+    --radius: 10px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+  }
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+  .header h1 {
+    font-size: 24px;
+    color: var(--primary);
+  }
+  .header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group:last-child {
+    margin-bottom: 0;
+  }
+  .form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .form-group input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+    outline: none;
+  }
+  .form-group input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(229,62,62,0.1);
+  }
+  .form-group input[readonly] {
+    background: #f7fafc;
+    color: var(--text-secondary);
+  }
+  .btn-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .btn {
+    flex: 1;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(229,62,62,0.25);
+  }
+  .btn-secondary {
+    background: #edf2f7;
+    color: var(--text);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: #e2e8f0;
+  }
+  .btn-success {
+    background: #38a169;
+    color: #fff;
+  }
+  .btn-success:hover:not(:disabled) {
+    background: #2f855a;
+  }
+
+  /* 状态区 */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f7fafc;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    min-height: 48px;
+  }
+  .status-bar .spinner {
+    display: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top: 2px solid var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  .status-bar.loading .spinner { display: block; }
+  .status-bar .status-text { flex: 1; }
+  .status-bar.error {
+    background: #fff5f5;
+    color: #c53030;
+  }
+  .status-bar.success {
+    background: #f0fff4;
+    color: #276749;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* 结果区域 */
+  .result-section {
+    display: none;
+  }
+  .result-section.show {
+    display: block;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+  .info-item {
+    padding: 10px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .info-item .label {
+    color: var(--text-secondary);
+    font-size: 12px;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .info-item .value {
+    font-weight: 600;
+  }
+  .info-item .value.price {
+    color: var(--primary);
+    font-size: 16px;
+  }
+  .tag-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #ebf8ff;
+    color: #2b6cb0;
+    font-size: 12px;
+    margin: 1px;
+  }
+
+  /* 图片预览 */
+  .image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .image-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f7fafc;
+  }
+  .image-card .preview {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+    background: #edf2f7;
+  }
+  .image-card .preview[src=""] {
+    display: none;
+  }
+  .image-card .meta {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .image-card .meta .name {
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  /* 文件列表 */
+  .file-list {
+    margin-top: 10px;
+  }
+  .file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+  }
+  .file-item .icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-right: 10px;
+  }
+  .file-item .icon.txt {
+    background: #ebf8ff;
+    color: #2b6cb0;
+  }
+  .file-item .icon.img {
+    background: #fefcbf;
+    color: #d69e2e;
+  }
+  .file-item .icon.err {
+    background: #fff5f5;
+    color: #c53030;
+  }
+  .file-item .path {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+  .file-item .status-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .file-item .status-badge.ok {
+    background: #c6f6d5;
+    color: #276749;
+  }
+  .file-item .status-badge.fail {
+    background: #fed7d7;
+    color: #c53030;
+  }
+
+  /* 链接预览 */
+  .link-item {
+    padding: 8px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 13px;
+  }
+  .link-item a {
+    color: var(--primary);
+    text-decoration: none;
+  }
+  .link-item a:hover {
+    text-decoration: underline;
+  }
+  .link-item .huxing-name {
+    font-weight: 600;
+    margin-right: 10px;
+  }
+
+  .footer {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+
+  /* 历史记录 */
+  .history-section {
+    margin-top: 10px;
+  }
+  .history-item {
+    padding: 8px 12px;
+    background: #f7fafc;
+    border-radius: 6px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-item:hover {
+    background: #edf2f7;
+  }
+  .history-item .time {
+    color: var(--text-secondary);
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 12px; }
+    .card { padding: 16px; }
+    .info-grid { grid-template-columns: 1fr 1fr; }
+    .image-grid { grid-template-columns: 1fr 1fr; }
+    .btn-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🏠 贝壳找房 · 户型信息提取</h1>
+    <p>输入贝壳找房户型图链接，一键提取文案和图片并保存到本地</p>
+  </div>
+
+  <!-- 输入区域 -->
+  <div class="card">
+    <div class="form-group">
+      <label for="url">贝壳找房户型图链接</label>
+      <input type="url" id="url" placeholder="例如：https://gz.fang.ke.com/loupan/p_xxx/huxingtu/21000016928562.html" />
+    </div>
+    <div class="form-group">
+      <label for="saveDir">保存路径（可修改）</label>
+      <div style="display:flex;gap:6px;">
+        <input type="text" id="saveDir" style="flex:1;" />
+        <button class="btn btn-secondary" onclick="resetSaveDir()" style="flex:0;padding:8px 12px;font-size:12px;">↺ 默认</button>
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:4px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400;font-size:14px;">
+        <input type="checkbox" id="batchMode" checked />
+        <span>📦 下载本楼盘<strong>所有户型</strong>（自动检测本楼盘其他户型一并下载）</span>
+      </label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="extractBtn" onclick="doExtract()">🚀 一键提取</button>
+      <button class="btn btn-secondary" onclick="openFolder()">📂 打开文件夹</button>
+    </div>
+  </div>
+
+  <!-- 状态 -->
+  <div class="status-bar" id="statusBar">
+    <div class="spinner"></div>
+    <span class="status-text">就绪，请输入链接开始提取</span>
+  </div>
+
+  <!-- 结果 -->
+  <div class="result-section" id="resultSection">
+
+    <!-- 楼盘信息 -->
+    <div class="card">
+      <div class="section-title">📋 提取信息</div>
+      <div class="info-grid" id="infoGrid"></div>
+      <div id="tagsContainer" style="margin-top:10px;"></div>
+    </div>
+
+    <!-- 图片 -->
+    <div class="card">
+      <div class="section-title">🖼️ 下载图片</div>
+      <div class="image-grid" id="imageGrid"></div>
+    </div>
+
+    <!-- 文件夹 -->
+    <div class="card" id="folderCard" style="display:none;">
+      <div class="section-title">📁 保存文件夹</div>
+      <div id="folderDisplay" style="font-size:13px;"></div>
+    </div>
+
+    <!-- 文件 -->
+    <div class="card">
+      <div class="section-title">📁 保存文件</div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <!-- 其他户型 -->
+    <div class="card" id="otherHuxingCard" style="display:none;">
+      <div class="section-title">🏘️ 本楼盘其他户型</div>
+      <div id="otherHuxingList"></div>
+    </div>
+  </div>
+
+  <!-- 历史 -->
+  <div class="card" id="historyCard" style="display:none;">
+    <div class="section-title">📜 提取历史</div>
+    <div class="history-section" id="historyList"></div>
+  </div>
+
+  <div class="footer">
+    数据来源: 贝壳找房 ke.com | 仅供个人学习使用
+  </div>
+</div>
+
+<script>
+// 加载保存路径
+const DEFAULT_SAVE_DIR = `I:\\20240513-总文件-林圣光\\设计文件\\7-其他\\2026\\20260507测试\\提取信息`;
+document.getElementById('saveDir').value = DEFAULT_SAVE_DIR;
+
+// 当前提取的文件夹路径（子文件夹）
+let currentFolderPath = '';
+
+// 加载历史记录
+let history = [];
+try {
+  const saved = localStorage.getItem('extract_history');
+  if (saved) history = JSON.parse(saved);
+  if (history.length) renderHistory();
+} catch(e) {}
+
+function resetSaveDir() {
+  document.getElementById('saveDir').value = DEFAULT_SAVE_DIR;
+  setStatus('已恢复默认保存路径', '');
+}
+
+function setStatus(msg, type) {
+  const bar = document.getElementById('statusBar');
+  const text = bar.querySelector('.status-text');
+  text.textContent = msg;
+  bar.className = 'status-bar';
+  bar.classList.remove('error', 'success', 'loading');
+  if (type) bar.classList.add(type);
+}
+
+function setLoading(loading, batchProgress) {
+  const bar = document.getElementById('statusBar');
+  const btn = document.getElementById('extractBtn');
+  if (loading) {
+    bar.classList.add('loading');
+    btn.disabled = true;
+    if (batchProgress) {
+      btn.textContent = `⏳ ${batchProgress.completed}/${batchProgress.total}`;
+      setStatus(`⏳ 正在下载第 ${batchProgress.completed}/${batchProgress.total} 个户型：${batchProgress.current || ''}`, '');
+    } else {
+      btn.textContent = '⏳ 提取中...';
+      setStatus('正在抓取页面并下载图片，请稍候...', '');
+    }
+  } else {
+    bar.classList.remove('loading');
+    btn.disabled = false;
+    btn.textContent = '🚀 一键提取';
+  }
+}
+
+async function doExtract() {
+  const url = document.getElementById('url').value.trim();
+  const saveDir = document.getElementById('saveDir').value.trim();
+  const isBatch = document.getElementById('batchMode').checked;
+
+  if (!url) {
+    setStatus('⚠️ 请输入贝壳找房户型图链接', 'error');
+    return;
+  }
+
+  if (!url.includes('ke.com') || !url.includes('huxingtu')) {
+    setStatus('⚠️ 请输入有效的贝壳找房户型图链接（需包含 ke.com 和 huxingtu）', 'error');
+    return;
+  }
+
+  setLoading(true);
+  document.getElementById('resultSection').classList.remove('show');
+
+  try {
+    // 如果是批量，先轮询进度
+    const body = JSON.stringify({ url, saveDir, batch: isBatch });
+    const res = await fetch('/api/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      setStatus('❌ ' + (data.error || '提取失败'), 'error');
+      setLoading(false);
+      return;
+    }
+
+    if (isBatch && data.batch) {
+      const successCount = data.results.filter(r => r.success).length;
+      const failCount = data.results.filter(r => !r.success).length;
+      setStatus(`✅ 批量提取完成！成功 ${successCount} 个，失败 ${failCount} 个`, 'success');
+
+      // 汇总所有信息：取第一个成功的结果作为展示
+      const firstOk = data.results.find(r => r.success);
+      if (firstOk) {
+        renderResults(firstOk, true, data.results);
+      }
+
+      // 记录历史
+      if (firstOk && firstOk.info) {
+        addHistory(url, firstOk.info);
+      }
+    } else {
+      setStatus('✅ 提取完成！文件已保存到本地', 'success');
+      renderResults(data);
+      addHistory(url, data.info);
+    }
+
+    setLoading(false);
+
+  } catch (e) {
+    setStatus('❌ 请求失败: ' + e.message, 'error');
+    setLoading(false);
+  }
+}
+
+function renderResults(data, isBatch, allResults) {
+  const info = data.info;
+  const files = data.files || [];
+
+  // 批量模式：显示的是第一个户型，但展示所有文件夹
+  let folderName = data.folderName || '';
+  let folderPath = data.folderPath || '';
+
+  if (isBatch && allResults) {
+    // 取所有成功的文件夹路径
+    const okResults = allResults.filter(r => r.success);
+    // 设置当前文件夹为最后一个（最新的提取）
+    const last = okResults[okResults.length - 1];
+    if (last) { folderName = last.folderName; folderPath = last.folderPath; }
+    currentFolderPath = folderPath;
+  } else {
+    currentFolderPath = folderPath;
+  }
+
+  document.getElementById('resultSection').classList.add('show');
+
+  // ---- 批量信息 ----
+  if (isBatch && allResults) {
+    const okResults = allResults.filter(r => r.success);
+    const failResults = allResults.filter(r => !r.success);
+    const grid = document.getElementById('infoGrid');
+    grid.innerHTML = `
+      <div class="info-item" style="grid-column:1/-1;background:#f0fff4;">
+        <span class="label" style="font-size:14px;">📦 批量下载结果</span>
+        <span class="value" style="font-size:18px;">共 ${allResults.length} 个户型，成功 ${okResults.length} 个${failResults.length ? `，失败 ${failResults.length} 个` : ''}</span>
+      </div>
+    `;
+    document.getElementById('tagsContainer').innerHTML = '';
+    document.getElementById('imageGrid').innerHTML = '';
+
+    // 文件夹列表
+    const folderCard = document.getElementById('folderCard');
+    const folderDisplay = document.getElementById('folderDisplay');
+    folderCard.style.display = 'block';
+    folderDisplay.innerHTML = `
+      <div style="margin-bottom:10px;">
+        <button class="btn btn-secondary" onclick='openFolder("${currentFolderPath.replace(/\\[^\\]*$/, '')}")' style="padding:8px 16px;font-size:13px;">📂 打开根目录</button>
+      </div>
+      <div style="max-height:300px;overflow-y:auto;">
+        ${okResults.map(r => `
+          <div class="file-item" style="cursor:pointer;" onclick='openFolder("${r.folderPath}")'>
+            <div class="icon img" style="background:#ebf8ff;color:#2b6cb0;">📁</div>
+            <span style="flex:1;">${r.folderName}</span>
+            <span style="font-size:11px;color:var(--text-secondary);">${(r.files || []).length} 个文件</span>
+          </div>
+        `).join('')}
+        ${failResults.map(r => `
+          <div class="file-item">
+            <div class="icon err">✕</div>
+            <span style="flex:1;color:#c53030;">${r.url ? r.url.split('/').pop() : '未知'} — ${r.error || '失败'}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    document.getElementById('fileList').innerHTML = '';
+    document.getElementById('otherHuxingCard').style.display = 'none';
+    return;
+  }
+
+  // ---- 单户型模式 ----
+  const infoFields = [
+    { label: '楼盘名称', value: info.楼盘名称, cls: '' },
+    { label: '户型', value: info.huxing, cls: '' },
+    { label: '参考总价', value: info.price, cls: 'price' },
+    { label: '建筑面积', value: info.area, cls: '' },
+    { label: '朝向', value: info['朝向'], cls: '' },
+    { label: '状态', value: info.status, cls: '' },
+    { label: '物业类型', value: info['物业类型'], cls: '' },
+    { label: '户型结构', value: info['户型结构'], cls: '' },
+    { label: '区域', value: info['区域'], cls: '' },
+    { label: '楼盘单价', value: info['单价'], cls: '' },
+    { label: '面积范围', value: info['面积范围'], cls: '' },
+  ];
+
+  const grid = document.getElementById('infoGrid');
+  grid.innerHTML = infoFields.filter(f => f.value).map(f => `
+    <div class="info-item">
+      <span class="label">${f.label}</span>
+      <span class="value ${f.cls}">${f.value}</span>
+    </div>
+  `).join('');
+
+  // ---- 标签 ----
+  const tagsEl = document.getElementById('tagsContainer');
+  if (info.tags && info.tags.length) {
+    tagsEl.innerHTML = info.tags.map(t => `<span class="tag-badge">${t}</span>`).join(' ');
+  } else {
+    tagsEl.innerHTML = '';
+  }
+
+  // ---- 文件夹信息 ----
+  const folderCard = document.getElementById('folderCard');
+  const folderDisplay = document.getElementById('folderDisplay');
+  if (folderName) {
+    folderCard.style.display = 'block';
+    folderDisplay.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <strong style="font-size:15px;">📂 ${folderName}</strong>
+          <div style="color:var(--text-secondary);font-family:monospace;font-size:12px;margin-top:4px;">${folderPath}</div>
+        </div>
+        <button class="btn btn-secondary" onclick='openFolder("${folderPath}")' style="flex:0;padding:8px 16px;font-size:13px;">📂 打开此文件夹</button>
+      </div>
+    `;
+  } else {
+    folderCard.style.display = 'none';
+  }
+
+  // ---- 图片 ----
+  const imageGrid = document.getElementById('imageGrid');
+  imageGrid.innerHTML = (info.images || []).map(img => {
+    const file = files.find(f => f.name && f.name.includes(img.name));
+    const filePath = file ? file.path : '';
+    const fileSize = file && file.size ? (file.size / 1024).toFixed(1) + 'KB' : '';
+    const status = file ? (file.error ? '❌' : '✅') : '⏳';
+    return `
+      <div class="image-card">
+        <img class="preview" src="/preview?path=${encodeURIComponent(filePath)}" alt="${img.name}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 200 140%22><rect fill=%22%23edf2f7%22 width=%22200%22 height=%22140%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 fill=%22%23a0aec0%22 font-size=%2214%22>预览不可用</text></svg>'">
+        <div class="meta">
+          <span class="name">${status} ${img.name}</span>
+          ${fileSize ? `<span>${fileSize}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // ---- 文件列表 ----
+  const fileList = document.getElementById('fileList');
+  fileList.innerHTML = files.map(f => {
+    const isImg = f.type === '图片';
+    const iconClass = f.error ? 'err' : (isImg ? 'img' : 'txt');
+    const iconText = f.error ? '✕' : (isImg ? '🖼' : '📄');
+    const statusClass = f.error ? 'fail' : 'ok';
+    const statusText = f.error ? '失败' : (f.size ? ((f.size / 1024).toFixed(1) + 'KB') : '成功');
+    return `
+      <div class="file-item">
+        <div class="icon ${iconClass}">${iconText}</div>
+        <span>${f.name}</span>
+        <span class="status-badge ${statusClass}">${statusText}</span>
+      </div>
+    `;
+  }).join('');
+
+  // ---- 其他户型 ----
+  const otherCard = document.getElementById('otherHuxingCard');
+  const otherList = document.getElementById('otherHuxingList');
+  if (info.otherHuxing && info.otherHuxing.length) {
+    otherCard.style.display = 'block';
+    otherList.innerHTML = info.otherHuxing.map(h => `
+      <div class="link-item">
+        <span class="huxing-name">${h['户型']}</span>
+        <span>${h['面积']}</span>
+        <span>朝向${h['朝向']}</span>
+        <span>${h['价格']}</span>
+        ${h['链接'] ? `<br><a href="${h['链接']}" target="_blank">${h['链接']}</a>` : ''}
+      </div>
+    `).join('');
+  } else {
+    otherCard.style.display = 'none';
+  }
+}
+
+function addHistory(url, info) {
+  const entry = {
+    url,
+    name: info.楼盘名称 || info.huxing || '未知',
+    huxing: info.huxing || '',
+    time: new Date().toLocaleString('zh-CN'),
+    ts: Date.now()
+  };
+  history.unshift(entry);
+  if (history.length > 20) history.pop();
+  try {
+    localStorage.setItem('extract_history', JSON.stringify(history));
+  } catch(e) {}
+  renderHistory();
+}
+
+function renderHistory() {
+  const card = document.getElementById('historyCard');
+  const list = document.getElementById('historyList');
+  card.style.display = 'block';
+  list.innerHTML = history.map(h => `
+    <div class="history-item" onclick="document.getElementById('url').value='${h.url.replace(/'/g, "\\'")}'; setStatus('已填入链接，点击一键提取', '')">
+      <span>${h.name} ${h.huxing}</span>
+      <span class="time">${h.time}</span>
+    </div>
+  `).join('');
+}
+
+async function openFolder(folderPath) {
+  const dir = folderPath || currentFolderPath || document.getElementById('saveDir').value.trim();
+  try {
+    await fetch('/api/open-folder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: dir })
+    });
+  } catch(e) {
+    setStatus('无法打开文件夹', 'error');
+  }
+}
+</script>
+</body>
+</html>
