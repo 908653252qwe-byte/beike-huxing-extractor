@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: beike-huxing-extractor
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: USE_PUPPETEER
+        value: "true"
+      - key: NODE_VERSION
+        value: "20"
